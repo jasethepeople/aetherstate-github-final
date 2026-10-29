@@ -1,0 +1,42 @@
+services:
+  - type: pserv
+    name: aetherstate-bridge-mcp
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: sh -c "npm run migrate && npm run dev"
+    envVars:
+      - key: PORT_MCP
+        value: 3000
+      - key: PORT_BRIDGE
+        value: 8080
+      - key: SYNC_WS_PORT
+        value: 8081
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_URL
+        fromDatabase:
+          name: aether-redis
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aether-pg
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: BRIDGE_INTERNAL_SECRET
+        generateValue: true
+      - key: JWT_PUBLIC_KEY
+        sync: false
+
+databases:
+  - name: aether-pg
+    databaseName: aether
+    user: aether
+    plan: starter
+    ipAllowList: []
+
+  - name: aether-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru

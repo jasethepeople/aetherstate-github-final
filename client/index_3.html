@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AetherState Live Sync Demo</title>
+  <style>
+    body { font-family: Inter, sans-serif; background:#0a0a0a; color:#eee; display:grid; grid-template-columns: 1fr 1fr; gap:20px; padding:20px; }
+    .panel { background:#151515; border:1px solid #2a2a2a; border-radius:12px; padding:16px; }
+    h2 { margin:0 0 10px 0; font-size:16px; }
+    textarea, input { width:100%; background:#0f0f0f; border:1px solid #333; color:#fff; border-radius:8px; padding:10px; }
+    pre { background:#0f0f0f; padding:12px; border-radius:8px; overflow:auto; max-height:400px; font-size:12px; }
+    button { background:#fff; color:#000; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
+    .status { font-size:12px; color:#888; }
+  </style>
+  <script type="importmap">
+    { "imports": { "@automerge/automerge": "https://cdn.jsdelivr.net/npm/@automerge/automerge@2.1.14/dist/mjs/index.js" } }
+  </script>
+</head>
+<body>
+  <div class="panel">
+    <h2>🧑‍💻 Peer A - docId: demo-doc</h2>
+    <div class="status" id="statusA">connecting...</div>
+    <input id="keyA" placeholder="key like notes/todo" value="notes/todo" />
+    <textarea id="valA" rows="3" placeholder="value">hello from A</textarea>
+    <button onclick="putA()">Put (A)</button>
+    <h3>Live Doc A</h3>
+    <pre id="docA">{}</pre>
+  </div>
+  <div class="panel">
+    <h2>🤖 Peer B - same docId</h2>
+    <div class="status" id="statusB">connecting...</div>
+    <input id="keyB" placeholder="key" value="agents/bot1/outputs" />
+    <textarea id="valB" rows="3" placeholder="value">hello from B (AI agent)</textarea>
+    <button onclick="putB()">Put (B)</button>
+    <h3>Live Doc B</h3>
+    <pre id="docB">{}</pre>
+  </div>
+  <div class="panel" style="grid-column: 1 / -1;">
+    <h2>🔍 Semantic Search (pgvector)</h2>
+    <input id="q" placeholder="search query e.g. todo list" />
+    <button onclick="search()">Search</button>
+    <pre id="searchRes"></pre>
+  </div>
+
+<script type="module">
+import * as Automerge from '@automerge/automerge';
+
+function createPeer(docId, statusEl, docEl, label) {
+  let doc = Automerge.init();
+  let syncState = Automerge.initSyncState();
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${wsProto}//${location.hostname}:8081?docId=${docId}`);
+
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => {
+    statusEl.textContent = 'connected';
+    const [newState, msg] = Automerge.generateSyncMessage(doc, syncState);
+    syncState = newState;
+    if (msg) ws.send(msg);
+  };
+  ws.onmessage = (ev) => {
+    const data = new Uint8Array(ev.data);
+    const [newDoc, newSyncState] = Automerge.receiveSyncMessage(doc, syncState, data);
+    doc = newDoc;
+    syncState = newSyncState;
+    docEl.textContent = JSON.stringify(doc, null, 2);
+    // ack
+    const [ns, reply] = Automerge.generateSyncMessage(doc, syncState);
+    syncState = ns;
+    if (reply) ws.send(reply);
+  };
+  ws.onclose = () => statusEl.textContent = 'disconnected';
+
+  return {
+    put: (key, value) => {
+      const next = Automerge.change(doc, (d)=>{
+        const parts = key.split('/');
+        let cur = d;
+        for(let i=0;i<parts.length-1;i++){ if(!cur[parts[i]]) cur[parts[i]]={}; cur=cur[parts[i]]; }
+        cur[parts[parts.length-1]] = value;
+      });
+      const changes = Automerge.getChanges(doc, next);
+      doc = next;
+      docEl.textContent = JSON.stringify(doc, null, 2);
+      changes.forEach(c=> ws.send(c));
+    },
+    getDoc: () => doc
+  };
+}
+
+const peerA = createPeer('demo-doc', document.getElementById('statusA'), document.getElementById('docA'), 'A');
+const peerB = createPeer('demo-doc', document.getElementById('statusB'), document.getElementById('docB'), 'B');
+
+window.putA = () => peerA.put(document.getElementById('keyA').value, document.getElementById('valA').value);
+window.putB = () => peerB.put(document.getElementById('keyB').value, document.getElementById('valB').value);
+
+window.search = async () => {
+  const q = document.getElementById('q').value;
+  const res = await fetch(`/doc/demo-doc/search?q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  document.getElementById('searchRes').textContent = JSON.stringify(data, null, 2);
+};
+</script>
+</body>
+</html>

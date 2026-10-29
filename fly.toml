@@ -1,0 +1,42 @@
+app = "aetherstate"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT_MCP = "3000"
+  PORT_BRIDGE = "8080"
+  SYNC_WS_PORT = "8081"
+  REDIS_URL = "redis://redis:6379"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[services]]
+  internal_port = 8081
+  protocol = "tcp"
+  auto_stop_machines = true
+  auto_start_machines = true
+  [[services.ports]]
+    port = 8081
+    handlers = ["http"]
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  [[services.ports]]
+    port = 3000
+    handlers = ["http"]
+
+[processes]
+  app = "sh -c 'npm run migrate && npm run dev'"
+
+# For production, add:
+# flyctl redis create, flyctl postgres create - then:
+# flyctl secrets set REDIS_URL=... DATABASE_URL=... OPENAI_API_KEY=... BRIDGE_INTERNAL_SECRET=... JWT_PUBLIC_KEY=...

@@ -1,0 +1,30 @@
+{
+  "name": "aetherstate-final",
+  "type": "module",
+  "scripts": {
+    "mcp": "tsx src/mcp/server.ts",
+    "bridge": "tsx src/bridge/server.ts",
+    "migrate": "tsx src/bridge/migrate.ts",
+    "dev": "concurrently \"npm run bridge\" \"npm run mcp\""
+  },
+  "dependencies": {
+    "@automerge/automerge": "^2.1.14",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.22.4",
+    "express-rate-limit": "^7.1.5",
+    "redis": "^4.6.12",
+    "ws": "^8.14.2",
+    "pg": "^8.11.3",
+    "openai": "^4.28.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "concurrently": "^8.2.2",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/ws": "^8.5.10",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.4.0"
+  }
+}
